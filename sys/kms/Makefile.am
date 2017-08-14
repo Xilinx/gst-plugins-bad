@@ -19,6 +19,8 @@ libgstkms_la_CFLAGS = 			\
 libgstkms_la_LIBADD = 			\
 	$(GST_PLUGINS_BASE_LIBS) 		\
 	$(GST_BASE_LIBS) 			\
+        -lgstvideo-@GST_API_VERSION@            \
+        -lgstbase-@GST_API_VERSION@             \
 	$(GST_VIDEO_LIBS)			\
 	$(GST_ALLOCATORS_LIBS)			\
 	$(GST_LIBS) 				\
