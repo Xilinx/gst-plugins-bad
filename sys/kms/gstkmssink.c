@@ -70,9 +70,12 @@ G_DEFINE_TYPE_WITH_CODE (GstKMSSink, gst_kms_sink, GST_TYPE_VIDEO_SINK,
         GST_PLUGIN_DESC);
     GST_DEBUG_CATEGORY_GET (CAT_PERFORMANCE, "GST_PERFORMANCE"));
 
+static void gst_kms_sink_drain (GstKMSSink * self);
+
 enum
 {
   PROP_DRIVER_NAME = 1,
+  PROP_BUS_ID,
   PROP_CONNECTOR_ID,
   PROP_PLANE_ID,
   PROP_FORCE_MODESETTING,
@@ -85,7 +88,8 @@ static int
 kms_open (gchar ** driver)
 {
   static const char *drivers[] = { "i915", "radeon", "nouveau", "vmwgfx",
-    "exynos", "amdgpu", "imx-drm", "rockchip", "atmel-hlcdc", "msm"
+    "exynos", "amdgpu", "imx-drm", "rockchip", "atmel-hlcdc", "msm",
+    "xilinx_drm",
   };
   int i, fd = -1;
 
@@ -303,8 +307,10 @@ get_drm_caps (GstKMSSink * self)
   ret = drmGetCap (self->fd, DRM_CAP_PRIME, &has_prime);
   if (ret)
     GST_WARNING_OBJECT (self, "could not get prime capability");
-  else
+  else {
     self->has_prime_import = (gboolean) (has_prime & DRM_PRIME_CAP_IMPORT);
+    self->has_prime_export = (gboolean) (has_prime & DRM_PRIME_CAP_EXPORT);
+  }
 
   has_async_page_flip = 0;
   ret = drmGetCap (self->fd, DRM_CAP_ASYNC_PAGE_FLIP, &has_async_page_flip);
@@ -313,8 +319,10 @@ get_drm_caps (GstKMSSink * self)
   else
     self->has_async_page_flip = (gboolean) has_async_page_flip;
 
-  GST_INFO_OBJECT (self, "prime import (%s) / async page flip (%s)",
+  GST_INFO_OBJECT (self,
+      "prime import (%s) / prime export (%s) / async page flip (%s)",
       self->has_prime_import ? "✓" : "✗",
+      self->has_prime_export ? "✓" : "✗",
       self->has_async_page_flip ? "✓" : "✗");
 
   return TRUE;
@@ -506,8 +514,8 @@ gst_kms_sink_start (GstBaseSink * bsink)
   pres = NULL;
   plane = NULL;
 
-  if (self->devname)
-    self->fd = drmOpen (self->devname, NULL);
+  if (self->devname || self->bus_id)
+    self->fd = drmOpen (self->devname, self->bus_id);
   else
     self->fd = kms_open (&self->devname);
   if (self->fd < 0)
@@ -675,6 +683,9 @@ gst_kms_sink_stop (GstBaseSink * bsink)
 
   self = GST_KMS_SINK (bsink);
 
+  if (self->allocator)
+    gst_kms_allocator_clear_cache (self->allocator);
+
   gst_buffer_replace (&self->last_buffer, NULL);
   gst_caps_replace (&self->allowed_caps, NULL);
   gst_object_replace ((GstObject **) & self->pool, NULL);
@@ -824,6 +835,11 @@ gst_kms_sink_set_caps (GstBaseSink * bsink, GstCaps * caps)
 
   self = GST_KMS_SINK (bsink);
 
+  /* We are going to change the internal buffer pool, which means it will no
+   * longer be compatbile with the last_buffer size. Drain now, as we won't be
+   * able to do that later on. */
+  gst_kms_sink_drain (self);
+
   if (!gst_video_info_from_caps (&vinfo, caps))
     goto invalid_format;
 
@@ -917,13 +933,20 @@ gst_kms_sink_propose_allocation (GstBaseSink * bsink, GstQuery * query)
     pool = gst_kms_sink_create_pool (self, caps, size, 0);
     if (!pool)
       goto no_pool;
+
+    /* Only export for pool used upstream */
+    if (self->has_prime_export) {
+      GstStructure *config = gst_buffer_pool_get_config (pool);
+      gst_buffer_pool_config_add_option (config,
+          GST_BUFFER_POOL_OPTION_KMS_PRIME_EXPORT);
+      gst_buffer_pool_set_config (pool, config);
+    }
   }
 
-  if (pool) {
-    /* we need at least 2 buffer because we hold on to the last one */
-    gst_query_add_allocation_pool (query, pool, size, 2, 0);
+  /* we need at least 2 buffer because we hold on to the last one */
+  gst_query_add_allocation_pool (query, pool, size, 2, 0);
+  if (pool)
     gst_object_unref (pool);
-  }
 
   gst_query_add_allocation_meta (query, GST_VIDEO_META_API_TYPE, NULL);
   gst_query_add_allocation_meta (query, GST_VIDEO_CROP_META_API_TYPE, NULL);
@@ -1025,21 +1048,6 @@ event_failed:
   }
 }
 
-static GstMemory *
-get_cached_kmsmem (GstMemory * mem)
-{
-  return gst_mini_object_get_qdata (GST_MINI_OBJECT (mem),
-      g_quark_from_static_string ("kmsmem"));
-}
-
-static void
-set_cached_kmsmem (GstMemory * mem, GstMemory * kmsmem)
-{
-  return gst_mini_object_set_qdata (GST_MINI_OBJECT (mem),
-      g_quark_from_static_string ("kmsmem"), kmsmem,
-      (GDestroyNotify) gst_memory_unref);
-}
-
 static gboolean
 gst_kms_sink_import_dmabuf (GstKMSSink * self, GstBuffer * inbuf,
     GstBuffer ** outbuf)
@@ -1102,7 +1110,7 @@ gst_kms_sink_import_dmabuf (GstKMSSink * self, GstBuffer * inbuf,
       return FALSE;
   }
 
-  kmsmem = (GstKMSMemory *) get_cached_kmsmem (mems[0]);
+  kmsmem = (GstKMSMemory *) gst_kms_allocator_get_cached (mems[0]);
   if (kmsmem) {
     GST_LOG_OBJECT (self, "found KMS mem %p in DMABuf mem %p with fb id = %d",
         kmsmem, mems[0], kmsmem->fb_id);
@@ -1115,14 +1123,14 @@ gst_kms_sink_import_dmabuf (GstKMSSink * self, GstBuffer * inbuf,
   GST_LOG_OBJECT (self, "found these prime ids: %d, %d, %d, %d", prime_fds[0],
       prime_fds[1], prime_fds[2], prime_fds[3]);
 
-  kmsmem = gst_kms_allocator_dmabuf_import (self->allocator, prime_fds,
-      n_planes, mems_skip, &self->vinfo);
+  kmsmem = gst_kms_allocator_dmabuf_import (self->allocator,
+      prime_fds, n_planes, mems_skip, &self->vinfo);
   if (!kmsmem)
     return FALSE;
 
   GST_LOG_OBJECT (self, "setting KMS mem %p to DMABuf mem %p with fb id = %d",
       kmsmem, mems[0], kmsmem->fb_id);
-  set_cached_kmsmem (mems[0], GST_MEMORY_CAST (kmsmem));
+  gst_kms_allocator_cache (self->allocator, mems[0], GST_MEMORY_CAST (kmsmem));
 
 wrap_mem:
   *outbuf = gst_buffer_new ();
@@ -1135,26 +1143,12 @@ wrap_mem:
 }
 
 static GstBuffer *
-gst_kms_sink_get_input_buffer (GstKMSSink * self, GstBuffer * inbuf)
+gst_kms_sink_copy_to_dumb_buffer (GstKMSSink * self, GstBuffer * inbuf)
 {
-  GstMemory *mem;
-  GstBuffer *buf;
   GstFlowReturn ret;
   GstVideoFrame inframe, outframe;
   gboolean success;
-
-  mem = gst_buffer_peek_memory (inbuf, 0);
-  if (!mem)
-    return NULL;
-
-  if (gst_is_kms_memory (mem))
-    return gst_buffer_ref (inbuf);
-
-  buf = NULL;
-  if (gst_kms_sink_import_dmabuf (self, inbuf, &buf))
-    return buf;
-
-  GST_CAT_INFO_OBJECT (CAT_PERFORMANCE, self, "frame copy");
+  GstBuffer *buf = NULL;
 
   if (!gst_buffer_pool_set_active (self->pool, TRUE))
     goto activate_pool_failed;
@@ -1189,13 +1183,13 @@ activate_pool_failed:
   {
     GST_ELEMENT_ERROR (self, STREAM, FAILED, ("failed to activate buffer pool"),
         ("failed to activate buffer pool"));
-    goto bail;
+    return NULL;
   }
 create_buffer_failed:
   {
     GST_ELEMENT_ERROR (self, STREAM, FAILED, ("allocation failed"),
         ("failed to create buffer"));
-    goto bail;
+    return NULL;
   }
 error_copy_buffer:
   {
@@ -1212,6 +1206,27 @@ error_map_src_buffer:
     GST_WARNING_OBJECT (self, "failed to map buffer");
     goto bail;
   }
+}
+
+static GstBuffer *
+gst_kms_sink_get_input_buffer (GstKMSSink * self, GstBuffer * inbuf)
+{
+  GstMemory *mem;
+  GstBuffer *buf = NULL;
+
+  mem = gst_buffer_peek_memory (inbuf, 0);
+  if (!mem)
+    return NULL;
+
+  if (gst_is_kms_memory (mem))
+    return gst_buffer_ref (inbuf);
+
+  if (gst_kms_sink_import_dmabuf (self, inbuf, &buf))
+    return buf;
+
+  GST_CAT_INFO_OBJECT (CAT_PERFORMANCE, self, "frame copy");
+
+  return gst_kms_sink_copy_to_dumb_buffer (self, inbuf);
 }
 
 static GstFlowReturn
@@ -1329,6 +1344,47 @@ no_disp_ratio:
 }
 
 static void
+gst_kms_sink_drain (GstKMSSink * self)
+{
+  GstParentBufferMeta *parent_meta;
+
+  GST_DEBUG_OBJECT (self, "draining");
+
+  if (!self->last_buffer)
+    return;
+
+  /* We only need to return the last_buffer if it depends on upstream buffer.
+   * In this case, the last_buffer will have a GstParentBufferMeta set. */
+  parent_meta = gst_buffer_get_parent_buffer_meta (self->last_buffer);
+  if (parent_meta) {
+    GstBuffer *dumb_buf;
+    dumb_buf = gst_kms_sink_copy_to_dumb_buffer (self, parent_meta->buffer);
+    gst_kms_allocator_clear_cache (self->allocator);
+    gst_kms_sink_show_frame (GST_VIDEO_SINK (self), dumb_buf);
+    gst_buffer_unref (dumb_buf);
+  }
+}
+
+static gboolean
+gst_kms_sink_query (GstBaseSink * bsink, GstQuery * query)
+{
+  GstKMSSink *self = GST_KMS_SINK (bsink);
+
+  switch (GST_QUERY_TYPE (query)) {
+    case GST_QUERY_ALLOCATION:
+    case GST_QUERY_DRAIN:
+    {
+      gst_kms_sink_drain (self);
+      break;
+    }
+    default:
+      break;
+  }
+
+  return GST_BASE_SINK_CLASS (parent_class)->query (bsink, query);
+}
+
+static void
 gst_kms_sink_set_property (GObject * object, guint prop_id,
     const GValue * value, GParamSpec * pspec)
 {
@@ -1338,7 +1394,12 @@ gst_kms_sink_set_property (GObject * object, guint prop_id,
 
   switch (prop_id) {
     case PROP_DRIVER_NAME:
+      g_free (sink->devname);
       sink->devname = g_value_dup_string (value);
+      break;
+    case PROP_BUS_ID:
+      g_free (sink->bus_id);
+      sink->bus_id = g_value_dup_string (value);
       break;
     case PROP_CONNECTOR_ID:
       sink->conn_id = g_value_get_int (value);
@@ -1367,6 +1428,9 @@ gst_kms_sink_get_property (GObject * object, guint prop_id,
     case PROP_DRIVER_NAME:
       g_value_take_string (value, sink->devname);
       break;
+    case PROP_BUS_ID:
+      g_value_take_string (value, sink->bus_id);
+      break;
     case PROP_CONNECTOR_ID:
       g_value_set_int (value, sink->conn_id);
       break;
@@ -1389,6 +1453,7 @@ gst_kms_sink_finalize (GObject * object)
 
   sink = GST_KMS_SINK (object);
   g_clear_pointer (&sink->devname, g_free);
+  g_clear_pointer (&sink->bus_id, g_free);
   gst_poll_free (sink->poll);
 
   G_OBJECT_CLASS (parent_class)->finalize (object);
@@ -1432,6 +1497,7 @@ gst_kms_sink_class_init (GstKMSSinkClass * klass)
   basesink_class->set_caps = GST_DEBUG_FUNCPTR (gst_kms_sink_set_caps);
   basesink_class->get_caps = GST_DEBUG_FUNCPTR (gst_kms_sink_get_caps);
   basesink_class->propose_allocation = gst_kms_sink_propose_allocation;
+  basesink_class->query = gst_kms_sink_query;
 
   videosink_class->show_frame = gst_kms_sink_show_frame;
 
@@ -1448,6 +1514,17 @@ gst_kms_sink_class_init (GstKMSSinkClass * klass)
    */
   g_properties[PROP_DRIVER_NAME] = g_param_spec_string ("driver-name",
       "device name", "DRM device driver name", NULL,
+      G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | G_PARAM_CONSTRUCT);
+
+  /**
+   * kmssink:bus-id:
+   *
+   * If you have a system with multiple displays for the same driver-name,
+   * you can choose which display to use by setting the DRM bus ID. Otherwise,
+   * the driver decides which one.
+   */
+  g_properties[PROP_BUS_ID] = g_param_spec_string ("bus-id",
+      "Bus ID", "DRM bus ID", NULL,
       G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | G_PARAM_CONSTRUCT);
 
   /**

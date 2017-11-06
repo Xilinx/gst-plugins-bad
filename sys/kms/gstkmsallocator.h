@@ -86,6 +86,17 @@ GstKMSMemory* gst_kms_allocator_dmabuf_import (GstAllocator *allocator,
 					       gsize offsets[GST_VIDEO_MAX_PLANES],
 					       GstVideoInfo *vinfo);
 
+GstMemory*    gst_kms_allocator_dmabuf_export (GstAllocator *allocator,
+                                               GstMemory *kmsmem);
+
+GstMemory *   gst_kms_allocator_get_cached  (GstMemory * mem);
+
+void          gst_kms_allocator_clear_cache (GstAllocator * allocator);
+
+void          gst_kms_allocator_cache       (GstAllocator * allocator,
+                                             GstMemory * mem,
+                                             GstMemory * kmsmem);
+
 G_END_DECLS
 
 

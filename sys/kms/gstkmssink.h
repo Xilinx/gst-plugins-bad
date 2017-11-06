@@ -60,6 +60,7 @@ struct _GstKMSSink {
 
   /* capabilities */
   gboolean has_prime_import;
+  gboolean has_prime_export;
   gboolean has_async_page_flip;
   gboolean can_scale;
 
@@ -73,6 +74,7 @@ struct _GstKMSSink {
   GstMemory *tmp_kmsmem;
 
   gchar *devname;
+  gchar *bus_id;
 
   guint32 mm_width, mm_height;
 
