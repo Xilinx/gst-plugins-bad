@@ -62,6 +62,11 @@ static const struct
   DEF_FMT (NV12, NV12),
   DEF_FMT (NV21, NV21),
   DEF_FMT (NV16, NV16),
+#ifdef DRM_FORMAT_XV15
+  /* Both formats have been added together */
+  DEF_FMT (XV15, NV12_10LE32),
+  DEF_FMT (XV20, NV16_10LE32),
+#endif
 
 #undef DEF_FMT
 };
@@ -107,6 +112,13 @@ gst_drm_bpp_from_drm (guint32 drmfmt)
     case DRM_FORMAT_NV16:
       bpp = 8;
       break;
+#ifdef DRM_FORMAT_XV15
+    case DRM_FORMAT_XV15:
+    case DRM_FORMAT_XV20:
+      /* One 32b macro pixel: three 10b pixels + 2b padding */
+      bpp = 32;
+      break;
+#endif
     case DRM_FORMAT_UYVY:
     case DRM_FORMAT_YUYV:
     case DRM_FORMAT_YVYU:
@@ -121,6 +133,28 @@ gst_drm_bpp_from_drm (guint32 drmfmt)
 }
 
 guint32
+gst_drm_width_from_drm (guint32 drmfmt, guint32 width)
+{
+  guint32 ret;
+
+  switch (drmfmt) {
+#ifdef DRM_FORMAT_XV15
+      /* Convert pixel width to macropixel width */
+    case DRM_FORMAT_XV15:
+    case DRM_FORMAT_XV20:
+      ret = gst_util_uint64_scale_round (width, 1, 3);
+      break;
+#endif
+    default:
+      ret = width;
+      break;
+  }
+
+
+  return ret;
+}
+
+guint32
 gst_drm_height_from_drm (guint32 drmfmt, guint32 height)
 {
   guint32 ret;
@@ -131,9 +165,15 @@ gst_drm_height_from_drm (guint32 drmfmt, guint32 height)
     case DRM_FORMAT_YUV422:
     case DRM_FORMAT_NV12:
     case DRM_FORMAT_NV21:
+#ifdef DRM_FORMAT_XV15
+    case DRM_FORMAT_XV15:
+#endif
       ret = height * 3 / 2;
       break;
     case DRM_FORMAT_NV16:
+#ifdef DRM_FORMAT_XV20
+    case DRM_FORMAT_XV20:
+#endif
       ret = height * 2;
       break;
     default:
