@@ -52,11 +52,13 @@ struct _GstKMSSink {
   gint conn_id;
   gint crtc_id;
   gint plane_id;
+  gint primary_plane_id;
   guint pipe;
 
   /* crtc data */
   guint16 hdisplay, vdisplay;
   guint32 buffer_id;
+  gpointer saved_crtc;
 
   /* capabilities */
   gboolean has_prime_import;
@@ -65,6 +67,7 @@ struct _GstKMSSink {
   gboolean can_scale;
 
   gboolean modesetting_enabled;
+  gboolean fullscreen_enabled;
 
   GstVideoInfo vinfo;
   GstCaps *allowed_caps;
