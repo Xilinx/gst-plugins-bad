@@ -2839,6 +2839,13 @@ get_format_range_extension_profile (GstH265ProfileTierLevel * ptl)
         18},
     {GST_H265_PROFILE_MAIN_444_16_STILL_PICTURE, 0, 0, 0, 0, 0, 0, 1, 1, FALSE,
         19},
+    /* Xilinx specific */
+    /* main-422-10 + max_8bit_constraint_flag */
+    {GST_H265_PROFILE_MAIN_422_XILINX, 1, 1, 1, 1, 0, 0, 0, 0, TRUE, 4},
+    /* monochrome-12 + max_10bit_constraint_flag */
+    {GST_H265_PROFILE_MONOCHROME_10_XILINX, 1, 1, 0, 1, 1, 1, 0, 0, TRUE, 1},
+    /* main-422-10-intra + max_8bit_constraint_flag  */
+    {GST_H265_PROFILE_MAIN_422_INTRA_XILINX, 1, 1, 1, 1, 0, 0, 1, 0, FALSE, 12},
   };
   GstH265Profile result = GST_H265_PROFILE_INVALID;
   guint i;
