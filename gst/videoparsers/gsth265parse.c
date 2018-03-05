@@ -1466,6 +1466,13 @@ get_profile_string (GstH265Profile profile)
       return "main-444-still-picture";
     case GST_H265_PROFILE_MAIN_444_16_STILL_PICTURE:
       return "main-444-16-still-picture";
+      /* Xilinx specific */
+    case GST_H265_PROFILE_MAIN_422_XILINX:
+      return "main-422";
+    case GST_H265_PROFILE_MONOCHROME_10_XILINX:
+      return "monochrome-10";
+    case GST_H265_PROFILE_MAIN_422_INTRA_XILINX:
+      return "main-422-intra";
     default:
       break;
   }
