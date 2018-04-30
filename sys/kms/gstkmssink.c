@@ -716,15 +716,6 @@ gst_kms_sink_start (GstBaseSink * bsink)
   if (!res)
     goto resources_failed;
 
-  ret = drmSetClientCap (self->fd, DRM_CLIENT_CAP_ATOMIC, 1);
-  if (ret) {
-    self->atomic_modesetting = FALSE;
-    GST_DEBUG_OBJECT (self, "No atomic modesetting support");
-  } else {
-    GST_DEBUG_OBJECT (self, "Atomic modesetting support enabled");
-    self->atomic_modesetting = TRUE;
-  }
-
   if (self->conn_id == -1)
     conn = find_main_monitor (self->fd, res);
   else
@@ -1661,8 +1652,6 @@ retry_set_plane:
       goto retry_set_plane;
     }
     goto set_plane_failed;
-  } else if (self->atomic_modesetting) {
-    goto is_synchronous_set_plane;
   }
 
 sync_frame:
@@ -1672,7 +1661,6 @@ sync_frame:
     goto bail;
   }
 
-is_synchronous_set_plane:
   if (buffer != self->last_buffer)
     gst_buffer_replace (&self->last_buffer, buffer);
 

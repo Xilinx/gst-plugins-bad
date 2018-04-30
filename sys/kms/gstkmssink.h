@@ -66,7 +66,6 @@ struct _GstKMSSink {
   gboolean has_async_page_flip;
   gboolean can_scale;
 
-  gboolean atomic_modesetting;
   gboolean modesetting_enabled;
   gboolean fullscreen_enabled;
 
