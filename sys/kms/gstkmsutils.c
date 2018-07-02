@@ -119,7 +119,7 @@ gst_drm_bpp_from_drm (guint32 drmfmt)
 #ifdef DRM_FORMAT_XV15
     case DRM_FORMAT_XV15:
     case DRM_FORMAT_XV20:
-      /* One 32b macro pixel: three 10b pixels + 2b padding*/
+      /* One 32b macro pixel: three 10b pixels + 2b padding */
       bpp = 32;
       break;
 #endif
@@ -147,7 +147,7 @@ gst_drm_width_from_drm (guint32 drmfmt, guint32 width)
 
   switch (drmfmt) {
 #ifdef DRM_FORMAT_XV15
-    /* Convert pixel width to macropixel width */
+      /* Convert pixel width to macropixel width */
     case DRM_FORMAT_XV15:
     case DRM_FORMAT_XV20:
       ret = gst_util_uint64_scale_round (width, 1, 3);
