@@ -188,7 +188,7 @@ gst_kms_allocator_memory_create (GstKMSAllocator * allocator,
   arg.bpp = gst_drm_bpp_from_drm (fmt);
   w = GST_VIDEO_INFO_WIDTH (vinfo);
   arg.width = gst_drm_width_from_drm (fmt, w);
-  h = GST_VIDEO_INFO_HEIGHT (vinfo);
+  h = GST_VIDEO_INFO_FIELD_HEIGHT (vinfo);
   arg.height = gst_drm_height_from_drm (fmt, h);
 
   ret = drmIoctl (allocator->priv->fd, DRM_IOCTL_MODE_CREATE_DUMB, &arg);
@@ -452,7 +452,7 @@ gst_kms_allocator_add_fb (GstKMSAllocator * alloc, GstKMSMemory * kmsmem,
     return TRUE;
 
   w = GST_VIDEO_INFO_WIDTH (vinfo);
-  h = GST_VIDEO_INFO_HEIGHT (vinfo);
+  h = GST_VIDEO_INFO_FIELD_HEIGHT (vinfo);
   fmt = gst_drm_format_from_video (GST_VIDEO_INFO_FORMAT (vinfo));
 
   for (i = 0; i < num_planes; i++) {
