@@ -584,7 +584,7 @@ set_crtc_to_plane_size (GstKMSSink * self, GstVideoInfo * vinfo)
   gint j;
   GstVideoFormat fmt;
   gboolean ret;
-  GstVideoInfo vinfo_for_crtc;
+  GstVideoInfo vinfo_crtc;
   drmModePlane *primary_plane;
 
   primary_plane = drmModeGetPlane (self->fd, self->primary_plane_id);
@@ -608,15 +608,15 @@ set_crtc_to_plane_size (GstKMSSink * self, GstVideoInfo * vinfo)
   if (primary_plane)
     drmModeFreePlane (primary_plane);
 
-  gst_video_info_set_interlaced_format (&vinfo_for_crtc, fmt,
+  gst_video_info_set_interlaced_format (&vinfo_crtc, fmt,
       GST_VIDEO_INFO_INTERLACE_MODE (vinfo), vinfo->width, vinfo->height);
-  GST_VIDEO_INFO_FPS_N (&vinfo_for_crtc) = GST_VIDEO_INFO_FPS_N (vinfo);
-  GST_VIDEO_INFO_FPS_D (&vinfo_for_crtc) = GST_VIDEO_INFO_FPS_D (vinfo);
-  format = gst_video_format_to_string (vinfo_for_crtc.finfo->format);
+  GST_VIDEO_INFO_FPS_N (&vinfo_crtc) = GST_VIDEO_INFO_FPS_N (vinfo);
+  GST_VIDEO_INFO_FPS_D (&vinfo_crtc) = GST_VIDEO_INFO_FPS_D (vinfo);
+  format = gst_video_format_to_string (vinfo_crtc.finfo->format);
   GST_DEBUG_OBJECT (self,
       "Format for modesetting = %s, width = %d and height = %d", format,
       vinfo->width, vinfo->height);
-  ret = configure_mode_setting (self, &vinfo_for_crtc);
+  ret = configure_mode_setting (self, &vinfo_crtc);
 
   return ret;
 }
