@@ -539,6 +539,9 @@ configure_mode_setting (GstKMSSink * self, GstVideoInfo * vinfo)
   if (err)
     goto modesetting_failed;
 
+  if (self->tmp_kmsmem)
+    gst_memory_unref (self->tmp_kmsmem);
+
   self->tmp_kmsmem = (GstMemory *) kmsmem;
   self->vinfo_crtc = *vinfo;
 
