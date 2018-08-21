@@ -468,7 +468,6 @@ configure_mode_setting (GstKMSSink * self, GstVideoInfo * vinfo)
   gboolean ret;
   drmModeConnector *conn;
   int err;
-  drmModeFB *fb;
   gint i;
   drmModeModeInfo *mode;
   guint32 fb_id;
@@ -476,7 +475,6 @@ configure_mode_setting (GstKMSSink * self, GstVideoInfo * vinfo)
 
   ret = FALSE;
   conn = NULL;
-  fb = NULL;
   mode = NULL;
   kmsmem = NULL;
 
@@ -498,13 +496,9 @@ configure_mode_setting (GstKMSSink * self, GstVideoInfo * vinfo)
   if (!conn)
     goto connector_failed;
 
-  fb = drmModeGetFB (self->fd, fb_id);
-  if (!fb)
-    goto framebuffer_failed;
-
   for (i = 0; i < conn->count_modes; i++) {
-    if (conn->modes[i].vdisplay == fb->height &&
-        conn->modes[i].hdisplay == fb->width) {
+    if (conn->modes[i].vdisplay == GST_VIDEO_INFO_HEIGHT (vinfo)
+        && conn->modes[i].hdisplay == GST_VIDEO_INFO_WIDTH (vinfo)) {
       if (GST_VIDEO_INFO_INTERLACE_MODE (vinfo) ==
           GST_VIDEO_INTERLACE_MODE_ALTERNATE) {
         guint fps;
@@ -545,8 +539,6 @@ configure_mode_setting (GstKMSSink * self, GstVideoInfo * vinfo)
   ret = TRUE;
 
 bail:
-  if (fb)
-    drmModeFreeFB (fb);
   if (conn)
     drmModeFreeConnector (conn);
 
@@ -562,12 +554,6 @@ bo_failed:
 connector_failed:
   {
     GST_ERROR_OBJECT (self, "Could not find a valid monitor connector");
-    goto bail;
-  }
-framebuffer_failed:
-  {
-    GST_ERROR_OBJECT (self, "drmModeGetFB failed: %s (%d)",
-        strerror (errno), errno);
     goto bail;
   }
 mode_failed:
