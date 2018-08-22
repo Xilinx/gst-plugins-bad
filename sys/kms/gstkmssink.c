@@ -468,7 +468,6 @@ configure_mode_setting (GstKMSSink * self, GstVideoInfo * vinfo)
   gboolean ret;
   drmModeConnector *conn;
   int err;
-  drmModeFB *fb;
   gint i;
   drmModeModeInfo *mode;
   guint32 fb_id;
@@ -476,9 +475,12 @@ configure_mode_setting (GstKMSSink * self, GstVideoInfo * vinfo)
 
   ret = FALSE;
   conn = NULL;
-  fb = NULL;
   mode = NULL;
   kmsmem = NULL;
+
+  if (self->vinfo_crtc.finfo
+      && gst_video_info_is_equal (&self->vinfo_crtc, vinfo))
+    return TRUE;
 
   if (self->conn_id < 0)
     goto bail;
@@ -494,13 +496,9 @@ configure_mode_setting (GstKMSSink * self, GstVideoInfo * vinfo)
   if (!conn)
     goto connector_failed;
 
-  fb = drmModeGetFB (self->fd, fb_id);
-  if (!fb)
-    goto framebuffer_failed;
-
   for (i = 0; i < conn->count_modes; i++) {
-    if (conn->modes[i].vdisplay == fb->height &&
-        conn->modes[i].hdisplay == fb->width) {
+    if (conn->modes[i].vdisplay == GST_VIDEO_INFO_FIELD_HEIGHT (vinfo)
+        && conn->modes[i].hdisplay == GST_VIDEO_INFO_WIDTH (vinfo)) {
       if (GST_VIDEO_INFO_INTERLACE_MODE (vinfo) ==
           GST_VIDEO_INTERLACE_MODE_ALTERNATE) {
         guint fps;
@@ -535,13 +533,15 @@ configure_mode_setting (GstKMSSink * self, GstVideoInfo * vinfo)
   if (err)
     goto modesetting_failed;
 
+  if (self->tmp_kmsmem)
+    gst_memory_unref (self->tmp_kmsmem);
+
   self->tmp_kmsmem = (GstMemory *) kmsmem;
+  self->vinfo_crtc = *vinfo;
 
   ret = TRUE;
 
 bail:
-  if (fb)
-    drmModeFreeFB (fb);
   if (conn)
     drmModeFreeConnector (conn);
 
@@ -557,12 +557,6 @@ bo_failed:
 connector_failed:
   {
     GST_ERROR_OBJECT (self, "Could not find a valid monitor connector");
-    goto bail;
-  }
-framebuffer_failed:
-  {
-    GST_ERROR_OBJECT (self, "drmModeGetFB failed: %s (%d)",
-        strerror (errno), errno);
     goto bail;
   }
 mode_failed:
@@ -584,7 +578,7 @@ set_crtc_to_plane_size (GstKMSSink * self, GstVideoInfo * vinfo)
   gint j;
   GstVideoFormat fmt;
   gboolean ret;
-  GstVideoInfo vinfo_for_crtc;
+  GstVideoInfo vinfo_crtc;
   drmModePlane *primary_plane;
 
   primary_plane = drmModeGetPlane (self->fd, self->primary_plane_id);
@@ -608,15 +602,15 @@ set_crtc_to_plane_size (GstKMSSink * self, GstVideoInfo * vinfo)
   if (primary_plane)
     drmModeFreePlane (primary_plane);
 
-  gst_video_info_set_interlaced_format (&vinfo_for_crtc, fmt,
+  gst_video_info_set_interlaced_format (&vinfo_crtc, fmt,
       GST_VIDEO_INFO_INTERLACE_MODE (vinfo), vinfo->width, vinfo->height);
-  GST_VIDEO_INFO_FPS_N (&vinfo_for_crtc) = GST_VIDEO_INFO_FPS_N (vinfo);
-  GST_VIDEO_INFO_FPS_D (&vinfo_for_crtc) = GST_VIDEO_INFO_FPS_D (vinfo);
-  format = gst_video_format_to_string (vinfo_for_crtc.finfo->format);
+  GST_VIDEO_INFO_FPS_N (&vinfo_crtc) = GST_VIDEO_INFO_FPS_N (vinfo);
+  GST_VIDEO_INFO_FPS_D (&vinfo_crtc) = GST_VIDEO_INFO_FPS_D (vinfo);
+  format = gst_video_format_to_string (vinfo_crtc.finfo->format);
   GST_DEBUG_OBJECT (self,
       "Format for modesetting = %s, width = %d and height = %d", format,
       vinfo->width, vinfo->height);
-  ret = configure_mode_setting (self, &vinfo_for_crtc);
+  ret = configure_mode_setting (self, &vinfo_crtc);
 
   return ret;
 }
