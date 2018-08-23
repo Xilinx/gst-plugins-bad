@@ -89,6 +89,7 @@ enum
   PROP_DISPLAY_WIDTH,
   PROP_DISPLAY_HEIGHT,
   PROP_FULLSCREEN_OVERLAY,
+  PROP_CONNECTOR_PROPS,
   PROP_N
 };
 
@@ -728,6 +729,66 @@ ensure_allowed_caps (GstKMSSink * self, drmModeConnector * conn,
   return (self->allowed_caps && !gst_caps_is_empty (self->allowed_caps));
 }
 
+typedef struct
+{
+  GstKMSSink *self;
+  drmModeObjectPropertiesPtr properties;
+} SetPropsIter;
+
+static gboolean
+set_connector_prop (GQuark field_id, const GValue * value, gpointer user_data)
+{
+  SetPropsIter *iter = user_data;
+  GstKMSSink *self = iter->self;
+  const gchar *name;
+  guint64 v;
+
+  name = g_quark_to_string (field_id);
+
+  if (G_VALUE_HOLDS (value, G_TYPE_INT))
+    v = g_value_get_int (value);
+  else if (G_VALUE_HOLDS (value, G_TYPE_UINT))
+    v = g_value_get_uint (value);
+  else if (G_VALUE_HOLDS (value, G_TYPE_INT64))
+    v = g_value_get_int64 (value);
+  else if (G_VALUE_HOLDS (value, G_TYPE_UINT64))
+    v = g_value_get_uint64 (value);
+  else {
+    GST_WARNING_OBJECT (self,
+        "'uint64' value expected for control '%s'.", name);
+    return TRUE;
+  }
+
+  if (set_drm_property (self->fd, self->conn_id, DRM_MODE_OBJECT_CONNECTOR,
+          iter->properties, name, v)) {
+    GST_DEBUG_OBJECT (self,
+        "Set connector property '%s' to %" G_GUINT64_FORMAT, name, v);
+  } else {
+    GST_WARNING_OBJECT (self,
+        "Failed to set connector property '%s' to %" G_GUINT64_FORMAT, name, v);
+  }
+
+  return TRUE;
+}
+
+static void
+gst_kms_sink_update_connector_properties (GstKMSSink * self)
+{
+  SetPropsIter iter;
+
+  if (!self->connector_props)
+    return;
+
+  iter.self = self;
+  iter.properties =
+      drmModeObjectGetProperties (self->fd, self->conn_id,
+      DRM_MODE_OBJECT_CONNECTOR);
+
+  gst_structure_foreach (self->connector_props, set_connector_prop, &iter);
+
+  drmModeFreeObjectProperties (iter.properties);
+}
+
 static gboolean
 gst_kms_sink_start (GstBaseSink * bsink)
 {
@@ -855,6 +916,8 @@ retry_find_plane:
 
   g_object_notify_by_pspec (G_OBJECT (self), g_properties[PROP_DISPLAY_WIDTH]);
   g_object_notify_by_pspec (G_OBJECT (self), g_properties[PROP_DISPLAY_HEIGHT]);
+
+  gst_kms_sink_update_connector_properties (self);
 
   ret = TRUE;
 
@@ -1832,6 +1895,16 @@ gst_kms_sink_set_property (GObject * object, guint prop_id,
     case PROP_FULLSCREEN_OVERLAY:
       sink->fullscreen_enabled = g_value_get_boolean (value);
       break;
+    case PROP_CONNECTOR_PROPS:{
+      const GstStructure *s = gst_value_get_structure (value);
+
+      g_clear_pointer (&sink->connector_props, gst_structure_free);
+
+      if (s)
+        sink->connector_props = gst_structure_copy (s);
+
+      break;
+    }
     default:
       if (!gst_video_overlay_set_property (object, PROP_N, prop_id, value))
         G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -1879,6 +1952,9 @@ gst_kms_sink_get_property (GObject * object, guint prop_id,
     case PROP_FULLSCREEN_OVERLAY:
       g_value_set_boolean (value, sink->fullscreen_enabled);
       break;
+    case PROP_CONNECTOR_PROPS:
+      gst_value_set_structure (value, sink->connector_props);
+      break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
       break;
@@ -1894,6 +1970,7 @@ gst_kms_sink_finalize (GObject * object)
   g_clear_pointer (&sink->devname, g_free);
   g_clear_pointer (&sink->bus_id, g_free);
   gst_poll_free (sink->poll);
+  g_clear_pointer (&sink->connector_props, gst_structure_free);
 
   G_OBJECT_CLASS (parent_class)->finalize (object);
 }
@@ -2047,6 +2124,19 @@ gst_kms_sink_class_init (GstKMSSinkClass * klass)
       "Fullscreen mode",
       "When enabled, the sink sets CRTC size same as input video size", FALSE,
       G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | G_PARAM_CONSTRUCT);
+
+  /**
+   * kmssink:connector-properties:
+   *
+   * Additional properties for the connector. Keys are strings and values
+   * unsigned 64 bits integers.
+   *
+   * Since: 1.16
+   */
+  g_properties[PROP_CONNECTOR_PROPS] =
+      g_param_spec_boxed ("connector-properties", "Connector Properties",
+      "Additionnal properties for the connector",
+      GST_TYPE_STRUCTURE, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
 
   g_object_class_install_properties (gobject_class, PROP_N, g_properties);
 
