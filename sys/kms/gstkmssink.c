@@ -220,17 +220,17 @@ set_property_value_for_plane_id (gint fd, gint plane_id, const char *prop_name,
 
   properties = drmModeObjectGetProperties (fd, plane_id, DRM_MODE_OBJECT_PLANE);
 
-  for (i = 0; i < properties->count_props; i++) {
+  for (i = 0; i < properties->count_props && !ret; i++) {
     property = drmModeGetProperty (fd, properties->props[i]);
     if (!strcmp (property->name, prop_name)) {
       drmModeObjectSetProperty (fd, plane_id,
           DRM_MODE_OBJECT_PLANE, property->prop_id, value);
-      drmModeFreeProperty (property);
-      drmModeFreeObjectProperties (properties);
-      return TRUE;
+      ret = TRUE;
     }
+    drmModeFreeProperty (property);
   }
 
+  drmModeFreeObjectProperties (properties);
   return ret;
 }
 
