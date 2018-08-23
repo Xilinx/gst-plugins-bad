@@ -210,27 +210,41 @@ find_property_value_for_plane_id (gint fd, gint plane_id, const char *prop_name)
 }
 
 static gboolean
-set_property_value_for_plane_id (gint fd, gint plane_id, const char *prop_name,
-    gint value)
+set_drm_property (gint fd, guint32 object, guint32 object_type,
+    drmModeObjectPropertiesPtr properties, const gchar * prop_name,
+    guint64 value)
 {
-  drmModeObjectPropertiesPtr properties;
-  drmModePropertyPtr property;
-  gint i;
+  guint i;
   gboolean ret = FALSE;
 
-  properties = drmModeObjectGetProperties (fd, plane_id, DRM_MODE_OBJECT_PLANE);
-
   for (i = 0; i < properties->count_props && !ret; i++) {
+    drmModePropertyPtr property;
+
     property = drmModeGetProperty (fd, properties->props[i]);
     if (!strcmp (property->name, prop_name)) {
-      drmModeObjectSetProperty (fd, plane_id,
-          DRM_MODE_OBJECT_PLANE, property->prop_id, value);
+      drmModeObjectSetProperty (fd, object, object_type,
+          property->prop_id, value);
       ret = TRUE;
     }
     drmModeFreeProperty (property);
   }
 
+  return ret;
+}
+
+static gboolean
+set_property_value_for_plane_id (gint fd, gint plane_id, const char *prop_name,
+    gint value)
+{
+  drmModeObjectPropertiesPtr properties;
+  gboolean ret;
+
+  properties = drmModeObjectGetProperties (fd, plane_id, DRM_MODE_OBJECT_PLANE);
+  ret =
+      set_drm_property (fd, plane_id, DRM_MODE_OBJECT_PLANE, properties,
+      prop_name, value);
   drmModeFreeObjectProperties (properties);
+
   return ret;
 }
 
