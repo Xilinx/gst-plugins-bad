@@ -755,10 +755,13 @@ typedef struct
 {
   GstKMSSink *self;
   drmModeObjectPropertiesPtr properties;
+  guint obj_id;
+  guint obj_type;
+  const gchar *obj_type_str;
 } SetPropsIter;
 
 static gboolean
-set_connector_prop (GQuark field_id, const GValue * value, gpointer user_data)
+set_obj_prop (GQuark field_id, const GValue * value, gpointer user_data)
 {
   SetPropsIter *iter = user_data;
   GstKMSSink *self = iter->self;
@@ -781,16 +784,31 @@ set_connector_prop (GQuark field_id, const GValue * value, gpointer user_data)
     return TRUE;
   }
 
-  if (set_drm_property (self->fd, self->conn_id, DRM_MODE_OBJECT_CONNECTOR,
+  if (set_drm_property (self->fd, iter->obj_id, iter->obj_type,
           iter->properties, name, v)) {
     GST_DEBUG_OBJECT (self,
-        "Set connector property '%s' to %" G_GUINT64_FORMAT, name, v);
+        "Set %s property '%s' to %" G_GUINT64_FORMAT,
+        iter->obj_type_str, name, v);
   } else {
     GST_WARNING_OBJECT (self,
-        "Failed to set connector property '%s' to %" G_GUINT64_FORMAT, name, v);
+        "Failed to set %s property '%s' to %" G_GUINT64_FORMAT,
+        iter->obj_type_str, name, v);
   }
 
   return TRUE;
+}
+
+static void
+gst_kms_sink_update_properties (SetPropsIter * iter, GstStructure * props)
+{
+  GstKMSSink *self = iter->self;
+
+  iter->properties = drmModeObjectGetProperties (self->fd, iter->obj_id,
+      iter->obj_type);
+
+  gst_structure_foreach (props, set_obj_prop, iter);
+
+  drmModeFreeObjectProperties (iter->properties);
 }
 
 static void
@@ -802,13 +820,11 @@ gst_kms_sink_update_connector_properties (GstKMSSink * self)
     return;
 
   iter.self = self;
-  iter.properties =
-      drmModeObjectGetProperties (self->fd, self->conn_id,
-      DRM_MODE_OBJECT_CONNECTOR);
+  iter.obj_id = self->conn_id;
+  iter.obj_type = DRM_MODE_OBJECT_CONNECTOR;
+  iter.obj_type_str = "connector";
 
-  gst_structure_foreach (self->connector_props, set_connector_prop, &iter);
-
-  drmModeFreeObjectProperties (iter.properties);
+  gst_kms_sink_update_properties (&iter, self->connector_props);
 }
 
 static gboolean
