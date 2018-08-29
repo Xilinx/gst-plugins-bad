@@ -214,25 +214,7 @@ find_property_value_for_plane_id (gint fd, gint plane_id, const char *prop_name)
 static gboolean
 set_drm_property (gint fd, guint32 object, guint32 object_type,
     drmModeObjectPropertiesPtr properties, const gchar * prop_name,
-    guint64 value)
-{
-  guint i;
-  gboolean ret = FALSE;
-
-  for (i = 0; i < properties->count_props && !ret; i++) {
-    drmModePropertyPtr property;
-
-    property = drmModeGetProperty (fd, properties->props[i]);
-    if (!strcmp (property->name, prop_name)) {
-      drmModeObjectSetProperty (fd, object, object_type,
-          property->prop_id, value);
-      ret = TRUE;
-    }
-    drmModeFreeProperty (property);
-  }
-
-  return ret;
-}
+    guint64 value);
 
 static gboolean
 set_property_value_for_plane_id (gint fd, gint plane_id, const char *prop_name,
@@ -728,6 +710,35 @@ ensure_allowed_caps (GstKMSSink * self, drmModeConnector * conn,
       self->allowed_caps);
 
   return (self->allowed_caps && !gst_caps_is_empty (self->allowed_caps));
+}
+
+static gboolean
+set_drm_property (gint fd, guint32 object, guint32 object_type,
+    drmModeObjectPropertiesPtr properties, const gchar * prop_name,
+    guint64 value)
+{
+  guint i;
+  gboolean ret = FALSE;
+
+  for (i = 0; i < properties->count_props && !ret; i++) {
+    drmModePropertyPtr property;
+
+    property = drmModeGetProperty (fd, properties->props[i]);
+
+    /* GstStructure parser limits the set of supported character, so we
+     * replace the invalid characters with '-'. In DRM, this is generally
+     * replacing spaces into '-'. */
+    g_strcanon (property->name, G_CSET_a_2_z G_CSET_A_2_Z G_CSET_DIGITS, '-');
+
+    if (!strcmp (property->name, prop_name)) {
+      drmModeObjectSetProperty (fd, object, object_type,
+          property->prop_id, value);
+      ret = TRUE;
+    }
+    drmModeFreeProperty (property);
+  }
+
+  return ret;
 }
 
 typedef struct
