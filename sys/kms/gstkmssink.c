@@ -1720,6 +1720,39 @@ done:
   return buf;
 }
 
+/* Kind of abuse of the DirtyFB API to pass the field information.
+ * This may not be upstreamable, and may need a proper API designed with
+ * the DRM community. */
+#define XILINX_DRM_MODE_FB_DIRTY_TOP_FIELD 0x03
+#define XILINX_DRM_MODE_FB_DIRTY_BOTTOM_FIELD 0x04
+
+static void
+gst_kms_sink_pass_alternate_info (GstKMSSink * self, GstBuffer * buffer,
+    guint32 fb_id)
+{
+  struct drm_mode_fb_dirty_cmd dirty;
+  gint ret;
+
+  memset (&dirty, 0, sizeof (dirty));
+
+  dirty.fb_id = fb_id;
+
+  if (GST_BUFFER_FLAG_IS_SET (buffer, GST_VIDEO_BUFFER_FLAG_TOP_FIELD))
+    dirty.flags = XILINX_DRM_MODE_FB_DIRTY_TOP_FIELD;
+  else if (GST_BUFFER_FLAG_IS_SET (buffer, GST_VIDEO_BUFFER_FLAG_BOTTOM_FIELD))
+    dirty.flags = XILINX_DRM_MODE_FB_DIRTY_BOTTOM_FIELD;
+  else {
+    GST_WARNING_OBJECT (self, "Frame doesn't contain field information flags");
+    return;
+  }
+
+  ret = drmIoctl (self->fd, DRM_IOCTL_MODE_DIRTYFB, &dirty);
+  if (ret) {
+    GST_WARNING_OBJECT (self, "Failed to pass field information flags to DRM");
+    return;
+  }
+}
+
 static GstFlowReturn
 gst_kms_sink_show_frame (GstVideoSink * vsink, GstBuffer * buf)
 {
@@ -1826,6 +1859,10 @@ retry_set_plane:
   }
 
 sync_frame:
+  if (GST_VIDEO_INFO_INTERLACE_MODE (&self->vinfo) ==
+      GST_VIDEO_INTERLACE_MODE_ALTERNATE)
+    gst_kms_sink_pass_alternate_info (self, buffer, fb_id);
+
   /* Wait for the previous frame to complete redraw */
   if (!gst_kms_sink_sync (self)) {
     GST_OBJECT_UNLOCK (self);
