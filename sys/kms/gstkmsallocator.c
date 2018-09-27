@@ -447,7 +447,6 @@ gst_kms_allocator_add_fb (GstKMSAllocator * alloc, GstKMSMemory * kmsmem,
   guint32 w, h, fmt, bo_handles[4] = { 0, };
   guint32 pitches[4] = { 0, };
   guint32 offsets[4] = { 0, };
-  guint32 flags = 0;
 
   if (kmsmem->fb_id)
     return TRUE;
@@ -469,13 +468,8 @@ gst_kms_allocator_add_fb (GstKMSAllocator * alloc, GstKMSMemory * kmsmem,
   GST_DEBUG_OBJECT (alloc, "bo handles: %d, %d, %d, %d", bo_handles[0],
       bo_handles[1], bo_handles[2], bo_handles[3]);
 
-  if (GST_VIDEO_INFO_IS_INTERLACED (vinfo))
-    /* FIXME: this flag means full interleaved frames (top-first). We'll need a
-     * new flag for alternate mode when upstreaming. */
-    flags |= DRM_MODE_FB_INTERLACED;
-
   ret = drmModeAddFB2 (alloc->priv->fd, w, h, fmt, bo_handles, pitches,
-      offsets, &kmsmem->fb_id, flags);
+      offsets, &kmsmem->fb_id, 0);
   if (ret) {
     GST_ERROR_OBJECT (alloc, "Failed to bind to framebuffer: %s (%d)",
         strerror (-ret), ret);
