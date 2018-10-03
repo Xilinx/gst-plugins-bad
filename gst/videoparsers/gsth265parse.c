@@ -238,6 +238,7 @@ gst_h265_parse_reset (GstH265Parse * h265parse)
   gst_event_replace (&h265parse->force_key_unit_event, NULL);
 
   h265parse->discont = FALSE;
+  h265parse->marker = FALSE;
 
   gst_h265_parse_reset_stream_info (h265parse);
 }
@@ -879,6 +880,12 @@ gst_h265_parse_handle_frame_packetized (GstBaseParse * parse,
       tmp_frame.buffer = gst_buffer_copy_region (buffer, GST_BUFFER_COPY_ALL,
           nalu.offset, nalu.size);
 
+      /* Set marker on last packet */
+      if (nl + nalu.size == left) {
+        if (GST_BUFFER_FLAG_IS_SET (frame->buffer, GST_BUFFER_FLAG_MARKER))
+          h265parse->marker = TRUE;
+      }
+
       /* note we don't need to come up with a sub-buffer, since
        * subsequent code only considers input buffer's metadata.
        * Real data is either taken from input by baseclass or
@@ -895,6 +902,7 @@ gst_h265_parse_handle_frame_packetized (GstBaseParse * parse,
   gst_buffer_unmap (buffer, &map);
 
   if (!h265parse->split_packetized) {
+    h265parse->marker = TRUE;
     gst_h265_parse_parse_frame (parse, frame);
     ret = gst_base_parse_finish_frame (parse, frame, map.size);
   } else {
@@ -1083,6 +1091,7 @@ gst_h265_parse_handle_frame (GstBaseParse * parse,
       if (current_off > 0) {
         nalu.size = 0;
         nalu.offset = nalu.sc_offset;
+        h265parse->marker = TRUE;
         break;
       }
     }
@@ -1099,6 +1108,7 @@ gst_h265_parse_handle_frame (GstBaseParse * parse,
       /* If there is a marker flag, or input is AU, we know this is complete */
       if (GST_BUFFER_FLAG_IS_SET (frame->buffer, GST_BUFFER_FLAG_MARKER) ||
           h265parse->in_align == GST_H265_PARSE_ALIGN_AU) {
+        h265parse->marker = TRUE;
         break;
       }
 
@@ -1880,6 +1890,13 @@ gst_h265_parse_parse_frame (GstBaseParse * parse, GstBaseParseFrame * frame)
   if (h265parse->discont) {
     GST_BUFFER_FLAG_SET (buffer, GST_BUFFER_FLAG_DISCONT);
     h265parse->discont = FALSE;
+  }
+
+  if (h265parse->marker) {
+    GST_BUFFER_FLAG_SET (buffer, GST_BUFFER_FLAG_MARKER);
+    h265parse->marker = FALSE;
+  } else {
+    GST_BUFFER_FLAG_UNSET (buffer, GST_BUFFER_FLAG_MARKER);
   }
 
   /* replace with transformed HEVC output if applicable */
