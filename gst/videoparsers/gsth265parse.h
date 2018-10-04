@@ -113,6 +113,10 @@ struct _GstH265Parse
 
   GstClockTime pending_key_unit_ts;
   GstEvent *force_key_unit_event;
+
+  /* For insertion of AU Delimiter */
+  gboolean aud_needed;
+  gboolean aud_insert;
 };
 
 struct _GstH265ParseClass
