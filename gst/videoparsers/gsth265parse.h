@@ -103,6 +103,7 @@ struct _GstH265Parse
   GstAdapter *frame_out;
   gboolean keyframe;
   gboolean header;
+  gboolean frame_start;
   /* AU state */
   gboolean picture_start;
 
