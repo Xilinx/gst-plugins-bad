@@ -1016,8 +1016,19 @@ gst_h265_parse_handle_frame (GstBaseParse * parse,
   nonext = FALSE;
 
   current_off = h265parse->current_off;
+
   if (current_off < 0)
     current_off = 0;
+
+  /* The parser is being drain, but no new data was added, just pretend this
+   * AU is complete */
+  if (drain && current_off == size) {
+    GST_DEBUG_OBJECT (h265parse, "draining with no new data");
+    nalu.size = 0;
+    nalu.offset = current_off;
+    goto end;
+  }
+
   g_assert (current_off < size);
   GST_DEBUG_OBJECT (h265parse, "last parse position %d", current_off);
 
