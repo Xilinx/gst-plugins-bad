@@ -69,7 +69,6 @@ struct _GstKMSSink {
   gboolean modesetting_enabled;
   gboolean fullscreen_enabled;
   GstStructure *connector_props;
-  GstStructure *plane_props;
 
   GstVideoInfo vinfo;
   GstVideoInfo vinfo_crtc;

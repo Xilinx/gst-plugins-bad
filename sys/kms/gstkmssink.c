@@ -95,8 +95,7 @@ enum
   PROP_DISPLAY_HEIGHT,
   PROP_FULLSCREEN_OVERLAY,
   PROP_CONNECTOR_PROPS,
-  PROP_PLANE_PROPS,
-  PROP_N,
+  PROP_N
 };
 
 static GParamSpec *g_properties[PROP_N] = { NULL, };
@@ -830,22 +829,6 @@ gst_kms_sink_update_connector_properties (GstKMSSink * self)
   gst_kms_sink_update_properties (&iter, self->connector_props);
 }
 
-static void
-gst_kms_sink_update_plane_properties (GstKMSSink * self)
-{
-  SetPropsIter iter;
-
-  if (!self->plane_props)
-    return;
-
-  iter.self = self;
-  iter.obj_id = self->plane_id;
-  iter.obj_type = DRM_MODE_OBJECT_PLANE;
-  iter.obj_type_str = "plane";
-
-  gst_kms_sink_update_properties (&iter, self->plane_props);
-}
-
 static gboolean
 gst_kms_sink_start (GstBaseSink * bsink)
 {
@@ -975,7 +958,6 @@ retry_find_plane:
   g_object_notify_by_pspec (G_OBJECT (self), g_properties[PROP_DISPLAY_HEIGHT]);
 
   gst_kms_sink_update_connector_properties (self);
-  gst_kms_sink_update_plane_properties (self);
 
   ret = TRUE;
 
@@ -1963,16 +1945,6 @@ gst_kms_sink_set_property (GObject * object, guint prop_id,
 
       break;
     }
-    case PROP_PLANE_PROPS:{
-      const GstStructure *s = gst_value_get_structure (value);
-
-      g_clear_pointer (&sink->plane_props, gst_structure_free);
-
-      if (s)
-        sink->plane_props = gst_structure_copy (s);
-
-      break;
-    }
     default:
       if (!gst_video_overlay_set_property (object, PROP_N, prop_id, value))
         G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -2023,9 +1995,6 @@ gst_kms_sink_get_property (GObject * object, guint prop_id,
     case PROP_CONNECTOR_PROPS:
       gst_value_set_structure (value, sink->connector_props);
       break;
-    case PROP_PLANE_PROPS:
-      gst_value_set_structure (value, sink->plane_props);
-      break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
       break;
@@ -2042,7 +2011,6 @@ gst_kms_sink_finalize (GObject * object)
   g_clear_pointer (&sink->bus_id, g_free);
   gst_poll_free (sink->poll);
   g_clear_pointer (&sink->connector_props, gst_structure_free);
-  g_clear_pointer (&sink->plane_props, gst_structure_free);
 
   G_OBJECT_CLASS (parent_class)->finalize (object);
 }
@@ -2208,19 +2176,6 @@ gst_kms_sink_class_init (GstKMSSinkClass * klass)
   g_properties[PROP_CONNECTOR_PROPS] =
       g_param_spec_boxed ("connector-properties", "Connector Properties",
       "Additionnal properties for the connector",
-      GST_TYPE_STRUCTURE, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
-
-  /**
-   * kmssink:plane-properties:
-   *
-   * Additional properties for the plane. Keys are strings and values
-   * unsigned 64 bits integers.
-   *
-   * Since: 1.16
-   */
-  g_properties[PROP_PLANE_PROPS] =
-      g_param_spec_boxed ("plane-properties", "Connector Plane",
-      "Additionnal properties for the plane",
       GST_TYPE_STRUCTURE, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
 
   g_object_class_install_properties (gobject_class, PROP_N, g_properties);
