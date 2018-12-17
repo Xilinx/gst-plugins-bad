@@ -1109,8 +1109,7 @@ gst_kms_sink_stop (GstBaseSink * bsink)
         saved_crtc->buffer_id, saved_crtc->x, saved_crtc->y,
         (uint32_t *) & self->conn_id, 1, &saved_crtc->mode);
     if (err)
-      GST_ELEMENT_ERROR (self, RESOURCE, SETTINGS,
-          ("Failed to set CRTC with saved settings"), (NULL));
+      GST_ERROR_OBJECT (self, "Failed to set CRTC with saved settings");
 
     drmModeFreeCrtc ((drmModeCrtc *) self->saved_crtc);
   }
