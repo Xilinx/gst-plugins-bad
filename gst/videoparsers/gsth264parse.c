@@ -187,6 +187,7 @@ gst_h264_parse_reset_frame (GstH264Parse * h264parse)
 
   /* done parsing; reset state */
   h264parse->current_off = -1;
+  h264parse->prefix_off = -1;
 
   h264parse->update_caps = FALSE;
   h264parse->idr_pos = -1;
@@ -1041,7 +1042,7 @@ gst_h264_parse_collect_nal (GstH264Parse * h264parse, const guint8 * data,
    * (where spec-wise would fail) */
   complete = h264parse->picture_start && ((nal_type >= GST_H264_NAL_SEI &&
           nal_type <= GST_H264_NAL_AU_DELIMITER) ||
-      (nal_type >= 14 && nal_type <= 18));
+      (nal_type >= 15 && nal_type <= 18));
   complete |= h264parse->picture_start && (nal_type == GST_H264_NAL_SLICE
       || nal_type == GST_H264_NAL_SLICE_DPA
       || nal_type == GST_H264_NAL_SLICE_IDR) &&
@@ -1351,12 +1352,23 @@ gst_h264_parse_handle_frame (GstBaseParse * parse,
     GST_DEBUG_OBJECT (h264parse, "%p complete nal found. Off: %u, Size: %u",
         data, nalu.offset, nalu.size);
 
+    if (nalu.type == GST_H264_NAL_PREFIX_UNIT)
+      h264parse->prefix_off = nalu.sc_offset;
+
     if (gst_h264_parse_collect_nal (h264parse, data, size, &nalu)) {
       h264parse->aud_needed = TRUE;
-      /* complete current frame, if it exist */
-      if (current_off > 0) {
+      /* complete current frame, if it exists.
+       * if there is data remaining (current_off > 0) and no prefix
+       *   (prefix_off == -1) -> flush this data up to nalu.sc_offset
+       * if there is data remaining and a prefix not starting from the
+       *   beginning of the buffer (prefix_off > 0) -> flush up to the
+       *   beginning of the prefix
+       * if all remaining data is part of the prefix -> do nothing
+       */
+      if (current_off > 0 && h264parse->prefix_off != 0) {
         nalu.size = 0;
-        nalu.offset = nalu.sc_offset;
+        nalu.offset =
+            h264parse->prefix_off > 0 ? h264parse->prefix_off : nalu.sc_offset;
         h264parse->marker = TRUE;
         break;
       }
@@ -1388,8 +1400,10 @@ gst_h264_parse_handle_frame (GstBaseParse * parse,
           break;
         }
 
-        /* or if we are draining */
-        if (drain || h264parse->align == GST_H264_PARSE_ALIGN_NAL)
+        /* or if we are draining or output alignment is NAL */
+        /* ...but treat the PREFIX_UNIT as an incomplete NAL */
+        if (drain || (h264parse->align == GST_H264_PARSE_ALIGN_NAL &&
+                nalu.type != GST_H264_NAL_PREFIX_UNIT))
           break;
       }
 
@@ -1398,7 +1412,9 @@ gst_h264_parse_handle_frame (GstBaseParse * parse,
     }
 
     /* If the output is NAL, we are done */
+    /* ...but treat the PREFIX_UNIT as an incomplete NAL */
     if (h264parse->align == GST_H264_PARSE_ALIGN_NAL &&
+        nalu.type != GST_H264_NAL_PREFIX_UNIT &&
         GST_H264_PARSE_STATE_VALID (h264parse,
             GST_H264_PARSE_STATE_VALID_PICTURE_HEADERS))
       break;
