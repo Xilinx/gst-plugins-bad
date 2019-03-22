@@ -68,6 +68,7 @@ struct _GstKMSSink {
 
   gboolean modesetting_enabled;
   gboolean restore_crtc;
+  gboolean hold_extra_sample;
   GstStructure *connector_props;
   GstStructure *plane_props;
   gboolean fullscreen_enabled;
@@ -78,6 +79,7 @@ struct _GstKMSSink {
   GstBufferPool *pool;
   GstAllocator *allocator;
   GstBuffer *last_buffer;
+  GstBuffer *previous_last_buffer;
   GstMemory *tmp_kmsmem;
 
   gchar *devname;
