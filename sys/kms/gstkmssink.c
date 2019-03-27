@@ -476,12 +476,11 @@ configure_mode_setting (GstKMSSink * self, GstVideoInfo * vinfo)
   drmModeModeInfo *mode = NULL;
   drmModeModeInfo *cached_mode = NULL;
   guint32 fb_id;
-  GstKMSMemory *kmsmem;
+  GstMemory *mem = 0;
   guint fps;
   ret = FALSE;
   conn = NULL;
   mode = NULL;
-  kmsmem = NULL;
 
   if (self->vinfo_crtc.finfo
       && gst_video_info_is_equal (&self->vinfo_crtc, vinfo))
@@ -492,10 +491,14 @@ configure_mode_setting (GstKMSSink * self, GstVideoInfo * vinfo)
 
   GST_INFO_OBJECT (self, "configuring mode setting");
 
-  kmsmem = (GstKMSMemory *) gst_kms_allocator_bo_alloc (self->allocator, vinfo);
-  if (!kmsmem)
+  mem = gst_kms_allocator_bo_alloc (self->allocator, vinfo);
+  if (!mem)
     goto bo_failed;
-  fb_id = kmsmem->fb_id;
+
+  if (!gst_kms_memory_add_fb (mem, vinfo, 0))
+    goto bo_failed;
+
+  fb_id = gst_kms_memory_get_fb_id (mem);
 
   conn = drmModeGetConnector (self->fd, self->conn_id);
   if (!conn)
@@ -546,7 +549,8 @@ configure_mode_setting (GstKMSSink * self, GstVideoInfo * vinfo)
     goto modesetting_failed;
 
   g_clear_pointer (&self->tmp_kmsmem, gst_memory_unref);
-  self->tmp_kmsmem = (GstMemory *) kmsmem;
+  self->tmp_kmsmem = mem;
+  mem = NULL;
   self->vinfo_crtc = *vinfo;
 
   ret = TRUE;
@@ -554,6 +558,8 @@ configure_mode_setting (GstKMSSink * self, GstVideoInfo * vinfo)
 bail:
   if (conn)
     drmModeFreeConnector (conn);
+  if (mem)
+    gst_memory_unref (mem);
 
   return ret;
 
@@ -1617,8 +1623,7 @@ gst_kms_sink_import_dmabuf (GstKMSSink * self, GstBuffer * inbuf,
 
   kmsmem = (GstKMSMemory *) gst_kms_allocator_get_cached (mems[0]);
   if (kmsmem) {
-    GST_LOG_OBJECT (self, "found KMS mem %p in DMABuf mem %p with fb id = %d",
-        kmsmem, mems[0], kmsmem->fb_id);
+    GST_LOG_OBJECT (self, "found KMS mem %p in DMABuf mem %p", kmsmem, mems[0]);
     goto wrap_mem;
   }
 
@@ -1746,6 +1751,7 @@ gst_kms_sink_show_frame (GstVideoSink * vsink, GstBuffer * buf)
 {
   gint ret;
   GstBuffer *buffer = NULL;
+  GstMemory *mem;
   guint32 fb_id;
   GstKMSSink *self;
   GstVideoCropMeta *crop;
@@ -1768,7 +1774,12 @@ gst_kms_sink_show_frame (GstVideoSink * vsink, GstBuffer * buf)
 
   if (!buffer)
     return GST_FLOW_ERROR;
-  fb_id = gst_kms_memory_get_fb_id (gst_buffer_peek_memory (buffer, 0));
+
+  mem = gst_buffer_peek_memory (buffer, 0);
+  if (!gst_kms_memory_add_fb (mem, &self->vinfo, 0))
+    goto buffer_invalid;
+
+  fb_id = gst_kms_memory_get_fb_id (mem);
   if (fb_id == 0)
     goto buffer_invalid;
 
