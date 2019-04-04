@@ -1472,6 +1472,12 @@ AG_GST_CHECK_FEATURE(KATE, [Kate], kate, [
   AC_SUBST(TIGER_LIBS)
 ],,,[AM_CONDITIONAL(USE_TIGER, false)])
 
+dnl *** xlnxvideoscale ***
+translit(dnm, m, l) AM_CONDITIONAL(USE_XLNXVIDEOSCALE, true)
+AG_GST_CHECK_FEATURE(XLNXVIDEOSCALE, [xilinx video scaler plugin], xlnxvideoscale, [
+  PKG_CHECK_MODULES([GST_ALLOCATORS], [gstreamer-allocators-1.0], HAVE_XLNXVIDEOSCALE=yes, HAVE_XLNXVIDEOSCALE=no)
+])
+
 dnl *** kms ***
 translit(dnm, m, l) AM_CONDITIONAL(USE_KMS, true)
 AG_GST_CHECK_FEATURE(KMS, [drm/kms libraries], kms, [
@@ -2606,6 +2612,7 @@ sys/vdpau/Makefile
 sys/wasapi/Makefile
 sys/winks/Makefile
 sys/winscreencap/Makefile
+sys/xlnxvideoscale/Makefile
 tests/Makefile
 tests/check/Makefile
 tests/files/Makefile

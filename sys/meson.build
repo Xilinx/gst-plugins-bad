@@ -20,6 +20,7 @@ subdir('vdpau')
 subdir('wasapi')
 subdir('winks')
 subdir('winscreencap')
+subdir('xlnxvideoscale')
 
 # CUDA dependency
 cuda_dep = dependency('', required : false)
