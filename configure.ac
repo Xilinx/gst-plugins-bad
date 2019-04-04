@@ -2600,6 +2600,7 @@ sys/vdpau/Makefile
 sys/wasapi/Makefile
 sys/winks/Makefile
 sys/winscreencap/Makefile
+sys/xlnxvideoscale/Makefile
 tests/Makefile
 tests/check/Makefile
 tests/files/Makefile
