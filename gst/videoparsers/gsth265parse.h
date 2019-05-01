@@ -24,6 +24,7 @@
 #include <gst/gst.h>
 #include <gst/base/gstbaseparse.h>
 #include <gst/codecparsers/gsth265parser.h>
+#include <gst/video/video.h>
 
 G_BEGIN_DECLS
 
@@ -119,6 +120,13 @@ struct _GstH265Parse
   /* For insertion of AU Delimiter */
   gboolean aud_needed;
   gboolean aud_insert;
+
+  GstVideoMasteringDisplayInfo mastering_display_info;
+  guint mastering_display_info_state;
+
+  GstVideoContentLightLevel content_light_level;
+  guint content_light_level_state;
+
 };
 
 struct _GstH265ParseClass
