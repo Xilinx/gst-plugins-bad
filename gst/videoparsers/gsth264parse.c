@@ -2382,6 +2382,10 @@ gst_h264_parse_push_codec_buffer (GstH264Parse * h264parse,
     GST_BUFFER_FLAG_UNSET (buffer, GST_BUFFER_FLAG_DISCONT);
   }
 
+  if (GST_BUFFER_FLAG_IS_SET (buffer, GST_BUFFER_FLAG_DELTA_UNIT)) {
+    GST_BUFFER_FLAG_SET (nal, GST_BUFFER_FLAG_DELTA_UNIT);
+  }
+
   GST_BUFFER_PTS (nal) = GST_BUFFER_PTS (buffer);
   GST_BUFFER_DTS (nal) = GST_BUFFER_DTS (buffer);
   GST_BUFFER_DURATION (nal) = 0;
