@@ -1148,6 +1148,11 @@ gst_h264_parse_handle_frame (GstBaseParse * parse,
             }
           }
           if (is_filler_data) {
+            if (nalu.sc_offset == 1)
+              /* nal is starting with 4 byte start code, don't consider as
+               * filler data */
+              break;
+
             GST_DEBUG_OBJECT (parse, "Dropping filler data %d", nalu.sc_offset);
             frame->flags |= GST_BASE_PARSE_FRAME_FLAG_DROP;
             gst_buffer_unmap (buffer, &map);
