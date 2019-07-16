@@ -59,6 +59,7 @@ struct _GstH264Parse
   gint fps_num, fps_den;
   gint upstream_par_n, upstream_par_d;
   gint parsed_par_n, parsed_par_d;
+  GstVideoColorimetry parsed_colorimetry;
   /* current codec_data in output caps, if any */
   GstBuffer *codec_data;
   /* input codec_data, if any */
