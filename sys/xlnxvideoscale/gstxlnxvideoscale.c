@@ -98,7 +98,7 @@ struct xvpss_data
 
 #define XLNX_VIDEO_SCALE_CAPS \
     "video/x-raw, " \
-    "format = (string) {YUY2, UYVY, NV12, NV16, RGB, BGR, xRGB, GRAY8}, " \
+    "format = (string) {YUY2, UYVY, NV12, NV16, RGB, RGBx, BGR, xRGB, GRAY8}, " \
     "width = (int) [ 1, 3840 ], " \
     "height = (int) [ 1, 2160 ], " \
     "framerate = " GST_VIDEO_FPS_RANGE
@@ -187,6 +187,8 @@ get_xilinx_framebuf_format (GstVideoFormat gst_fourcc)
       return XILINX_FRMBUF_FMT_Y_UV8;
     case GST_VIDEO_FORMAT_RGB:
       return XILINX_FRMBUF_FMT_RGB8;
+    case GST_VIDEO_FORMAT_RGBx:
+      return XILINX_FRMBUF_FMT_RGBX8;
     case GST_VIDEO_FORMAT_BGR:
       return XILINX_FRMBUF_FMT_BGR8;
     case GST_VIDEO_FORMAT_xRGB:
@@ -203,6 +205,7 @@ get_xilinx_vpss_format (GstVideoFormat gst_fourcc)
 {
   switch (gst_fourcc) {
     case GST_VIDEO_FORMAT_RGB:
+    case GST_VIDEO_FORMAT_RGBx:
     case GST_VIDEO_FORMAT_BGR:
     case GST_VIDEO_FORMAT_xRGB:
       return XVIDC_CSF_RGB;
