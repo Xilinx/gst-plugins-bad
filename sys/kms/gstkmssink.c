@@ -1881,6 +1881,7 @@ gst_kms_sink_show_frame (GstVideoSink * vsink, GstBuffer * buf)
   GstMemory *mem;
   guint32 fb_id;
   GstKMSSink *self;
+  GstVideoInfo *vinfo = NULL;
   GstVideoCropMeta *crop;
   GstVideoRectangle src = { 0, };
   GstVideoRectangle dst = { 0, };
@@ -1914,9 +1915,6 @@ gst_kms_sink_show_frame (GstVideoSink * vsink, GstBuffer * buf)
 
     xlnx_ll_synchronize (self, buffer, clock);
   }
-
-  /* Make sure buf is not used accidentally */
-  buf = NULL;
 
   if (!buffer)
     return GST_FLOW_ERROR;
