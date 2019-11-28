@@ -149,6 +149,13 @@ struct _GstH264Parse
   guint8 closedcaptions[96];
   guint closedcaptions_size;
   GstVideoCaptionType closedcaptions_type;
+
+
+  GstVideoMasteringDisplayInfo mastering_display_info;
+  guint mastering_display_info_state;
+
+  GstVideoContentLightLevel content_light_level;
+  guint content_light_level_state;
 };
 
 struct _GstH264ParseClass
