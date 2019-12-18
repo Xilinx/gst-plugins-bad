@@ -35,6 +35,7 @@ base_tests = [
   [['elements/gdppay.c']],
   [['elements/h263parse.c'], false, [libparser_dep, gstcodecparsers_dep]],
   [['elements/h264parse.c'], false, [libparser_dep, gstcodecparsers_dep]],
+  [['elements/h265parse.c'], false, [libparser_dep, gstcodecparsers_dep]],
   [['elements/id3mux.c']],
   [['elements/mpegtsmux.c'], false, [gstmpegts_dep]],
   [['elements/mpeg4videoparse.c'], false, [libparser_dep, gstcodecparsers_dep]],
