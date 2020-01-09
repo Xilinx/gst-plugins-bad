@@ -82,6 +82,7 @@ static GstFlowReturn gst_kms_sink_show_frame (GstVideoSink * vsink,
     GstBuffer * buf);
 static void gst_kms_sink_video_overlay_init (GstVideoOverlayInterface * iface);
 static void gst_kms_sink_drain (GstKMSSink * self);
+static void ensure_kms_allocator (GstKMSSink * self);
 
 #define parent_class gst_kms_sink_parent_class
 G_DEFINE_TYPE_WITH_CODE (GstKMSSink, gst_kms_sink, GST_TYPE_VIDEO_SINK,
@@ -503,6 +504,8 @@ configure_mode_setting (GstKMSSink * self, GstVideoInfo * vinfo)
     goto bail;
 
   GST_INFO_OBJECT (self, "configuring mode setting");
+
+  ensure_kms_allocator (self);
 
   mem = gst_kms_allocator_bo_alloc (self->allocator, vinfo);
   if (!mem)
