@@ -134,6 +134,6 @@ SUBDIRS = $(ANDROID_MEDIA_DIR) $(APPLE_MEDIA_DIR) $(BLUEZ_DIR) $(D3DVIDEOSINK_DI
 
 DIST_SUBDIRS = androidmedia applemedia bluez d3dvideosink decklink directsound dvb fbdev ipcpipeline kms dshowdecwrapper dshowsrcwrapper dshowvideosink \
 		opensles shm uvch264 vdpau wasapi winks winscreencap \
-		nvdec nvenc tinyalsa msdk xlnxvideoscale
+		nvdec nvenc tinyalsa msdkxlnxvideoscale
 
 include $(top_srcdir)/common/parallel-subdirs.mak
