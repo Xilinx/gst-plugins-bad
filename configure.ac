@@ -1477,7 +1477,36 @@ translit(dnm, m, l) AM_CONDITIONAL(USE_KMS, true)
 AG_GST_CHECK_FEATURE(KMS, [drm/kms libraries], kms, [
   AG_GST_PKG_CHECK_MODULES(GST_ALLOCATORS, gstreamer-allocators-1.0)
   PKG_CHECK_MODULES([KMS_DRM], [libdrm >= 2.4.55], HAVE_KMS=yes, HAVE_KMS=no)
+  saved_CPPFLAGS="$CPPFLAGS"
+  CPPFLAGS="$CPPFLAGS $KMS_DRM_CFLAGS"
+  AC_COMPILE_IFELSE(
+          [
+            AC_LANG_PROGRAM(
+              [[
+#include <drm_mode.h>
+              ]],
+              [[
+struct hdr_metadata_infoframe hdr;
+              ]])
+          ],
+          [have_hdr_output_metadata="yes"],
+          [have_hdr_output_metadata="no"])
+  AC_COMPILE_IFELSE(
+          [
+            AC_LANG_PROGRAM(
+              [[
+#include <drm_mode.h>
+              ]],
+              [[
+struct gen_hdr_output_metadata hdr;
+              ]])
+          ],
+          [have_gen_hdr_output_metadata="yes"],
+          [have_gen_hdr_output_metadata="no"])
+  CPPFLAGS="$saved_CPPFLAGS"
 ])
+AM_CONDITIONAL(HAVE_HDR_OUTPUT_METADATA, [test "x$have_hdr_output_metadata" = "xyes"])
+AM_CONDITIONAL(HAVE_GEN_HDR_OUTPUT_METADATA, [test "x$have_gen_hdr_output_metadata" = "xyes"])
 
 dnl *** ladspa ***
 translit(dnm, m, l) AM_CONDITIONAL(USE_LADSPA, true)
