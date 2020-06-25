@@ -16,6 +16,14 @@ libgstkms_la_CFLAGS = 			\
 	$(KMS_DRM_CFLAGS) 			\
 	$(NULL)
 
+if HAVE_HDR_OUTPUT_METADATA
+libgstkms_la_CFLAGS += -DHAVE_HDR_OUTPUT_METADATA
+endif
+
+if HAVE_GEN_HDR_OUTPUT_METADATA
+libgstkms_la_CFLAGS += -DHAVE_GEN_HDR_OUTPUT_METADATA
+endif
+
 libgstkms_la_LIBADD = 			\
 	$(GST_PLUGINS_BASE_LIBS) 		\
 	$(GST_BASE_LIBS) 			\
