@@ -102,6 +102,8 @@ struct _GstKMSSink {
   gboolean xlnx_ll;
   /* timestamp of last vblank */
   GstClockTime last_vblank;
+
+  gboolean force_ntsc_tv;
 };
 
 struct _GstKMSSinkClass {
