@@ -1089,7 +1089,8 @@ gst_h264_parse_process_nal (GstH264Parse * h264parse, GstH264NalUnit * nalu)
 /* caller guarantees at least 2 bytes of nal payload for each nal
  * returns TRUE if next_nal indicates that nal terminates an AU */
 static inline gboolean
-gst_h264_parse_collect_nal (GstH264Parse * h264parse, GstH264NalUnit * nalu)
+gst_h264_parse_collect_nal (GstH264Parse * h264parse, const guint8 * data,
+    guint size, GstH264NalUnit * nalu)
 {
   GstH264NalUnitType nal_type = nalu->type;
   gboolean complete;
@@ -1425,7 +1426,7 @@ gst_h264_parse_handle_frame (GstBaseParse * parse,
     if (nalu.type == GST_H264_NAL_PREFIX_UNIT)
       h264parse->prefix_off = nalu.sc_offset;
 
-    if (gst_h264_parse_collect_nal (h264parse, &nalu)) {
+    if (gst_h264_parse_collect_nal (h264parse, data, size, &nalu)) {
       h264parse->aud_needed = TRUE;
       /* complete current frame, if it exists.
        * if there is data remaining (current_off > 0) and no prefix
