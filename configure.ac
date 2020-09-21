@@ -1472,6 +1472,36 @@ AG_GST_CHECK_FEATURE(KATE, [Kate], kate, [
   AC_SUBST(TIGER_LIBS)
 ],,,[AM_CONDITIONAL(USE_TIGER, false)])
 
+dnl *** mediasrcbin ***
+translit(dnm, m, l) AM_CONDITIONAL(USE_MEDIASRCBIN, true)
+HAVE_GST_V4L2=no
+HAVE_MEDIASRCBIN=no
+HAVE_MEDIACTL=no
+AG_GST_CHECK_FEATURE(MEDIASRCBIN, [Xilinx media source binary], mediasrcbin, [
+  AC_MSG_CHECKING([Checking for video4linux2 header ...])
+  AC_CHECK_HEADER(linux/videodev2.h, [ HAVE_GST_V4L2=yes ],
+  [
+    AC_CHECK_HEADER(sys/videodev2.h, [ HAVE_GST_V4L2=yes ],
+    [
+      AC_CHECK_HEADER(sys/videoio.h, [ HAVE_GST_V4L2=yes ])
+    ])
+  ])
+  AC_MSG_CHECKING([Checking for mediactl header ...])
+  AC_CHECK_HEADER(mediactl/mediactl.h, [ HAVE_MEDIACTL=yes ])
+  if test x$HAVE_GST_V4L2 = xyes; then
+    if test x$HAVE_MEDIACTL = xyes; then
+      HAVE_MEDIASRCBIN=yes
+      MEDIASRCBIN_CFLAGS="-I$PKG_CONFIG_SYSROOT_DIR/usr/include/mediactl"
+      MEDIASRCBIN_LDFLAGS="-L$PKG_CONFIG_SYSROOT_DIR/usr/lib/"
+      MEDIASRCBIN_LIBS="$LIBS -lmediactl -lv4l2subdev"
+    fi
+  fi
+])
+
+AC_SUBST(MEDIASRCBIN_CFLAGS)
+AC_SUBST(MEDIASRCBIN_LDFLAGS)
+AC_SUBST(MEDIASRCBIN_LIBS)
+
 dnl *** kms ***
 translit(dnm, m, l) AM_CONDITIONAL(USE_KMS, true)
 AG_GST_CHECK_FEATURE(KMS, [drm/kms libraries], kms, [
@@ -2381,6 +2411,7 @@ AM_CONDITIONAL(USE_HLS, false)
 AM_CONDITIONAL(USE_IQA, false)
 AM_CONDITIONAL(USE_KATE, false)
 AM_CONDITIONAL(USE_KMS, false)
+AM_CONDITIONAL(USE_MEDIASRCBIN, false)
 AM_CONDITIONAL(USE_TIGER, false)
 AM_CONDITIONAL(USE_LADSPA, false)
 AM_CONDITIONAL(USE_LCMS2, false)
@@ -2635,6 +2666,7 @@ sys/vdpau/Makefile
 sys/wasapi/Makefile
 sys/winks/Makefile
 sys/winscreencap/Makefile
+sys/mediasrcbin/Makefile
 tests/Makefile
 tests/check/Makefile
 tests/files/Makefile
