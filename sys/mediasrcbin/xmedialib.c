@@ -310,14 +310,6 @@ xml_srcent_init (gpointer data, gpointer user_data)
                   GST_DEBUG ("%s - Failed to get frame interval for %s!\n",
                       __func__, media_entity_get_devname (entity));
                 }
-
-                format.width = sink_format.width;
-                format.height = sink_format.height;
-                format.code = sink_format.code;
-
-                interval.numerator = sink_interval.numerator;
-                interval.denominator = sink_interval.denominator;
-
                 break;
               }
             }
