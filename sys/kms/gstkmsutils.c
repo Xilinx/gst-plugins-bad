@@ -172,6 +172,10 @@ gst_drm_width_from_drm (guint32 drmfmt, guint32 width)
   guint32 ret;
 
   switch (drmfmt) {
+    case DRM_FORMAT_YUV420:
+    case DRM_FORMAT_YVU420:
+      ret = GST_ROUND_UP_N(width, 512);
+      break;
 #ifdef DRM_FORMAT_XV15
       /* Convert pixel width to macropixel width */
     case DRM_FORMAT_XV15:
