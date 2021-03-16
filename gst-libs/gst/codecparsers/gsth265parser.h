@@ -229,6 +229,7 @@ typedef enum
  * @GST_H265_SEI_TIME_CODE: Time code SEI message (D.2.27) (Since: 1.16)
  * @GST_H265_SEI_MASTERING_DISPLAY_COLOUR_VOLUME: Mastering display colour volume information SEI message (D.2.28) (Since: 1.18)
  * @GST_H265_SEI_CONTENT_LIGHT_LEVEL: Content light level information SEI message (D.2.35) (Since: 1.18)
+ * @GST_H265_SEI_ALTERNATIVE_TRANSFER_CHARACTERISTICS: Preferred Transfer Characteristics SEI message (D.2.38)
  * ...
  *
  * The type of SEI message.
@@ -242,6 +243,7 @@ typedef enum
   GST_H265_SEI_TIME_CODE = 136,
   GST_H265_SEI_MASTERING_DISPLAY_COLOUR_VOLUME = 137,
   GST_H265_SEI_CONTENT_LIGHT_LEVEL = 144,
+  GST_H265_SEI_ALTERNATIVE_TRANSFER_CHARACTERISTICS = 147,
       /* and more...  */
 } GstH265SEIPayloadType;
 
@@ -333,6 +335,7 @@ typedef struct _GstH265TimeCode                 GstH265TimeCode;
 typedef struct _GstH265MasteringDisplayColourVolume GstH265MasteringDisplayColourVolume;
 typedef struct _GstH265ContentLightLevel        GstH265ContentLightLevel;
 typedef struct _GstH265SEIMessage               GstH265SEIMessage;
+typedef struct _GstH265AlternativeTransferCharacteristics GstH265AlternativeTransferCharacteristics;
 
 /**
  * GstH265NalUnit:
@@ -1174,6 +1177,19 @@ struct _GstH265ContentLightLevel
   guint16 max_pic_average_light_level;
 };
 
+/**
+ * GstH265AlternativeTransferCharacteristics:
+ * The preferred alternative value for the transfer_characteristics element in
+ * the VUI of the SPS
+ *
+ * D.2.38
+ *
+ */
+struct _GstH265AlternativeTransferCharacteristics
+{
+  guint8 preferred_transfer_characteristics;
+};
+
 struct _GstH265SEIMessage
 {
   GstH265SEIPayloadType payloadType;
@@ -1186,6 +1202,7 @@ struct _GstH265SEIMessage
     GstH265TimeCode time_code;
     GstH265MasteringDisplayColourVolume mastering_display_colour_volume;
     GstH265ContentLightLevel content_light_level;
+    GstH265AlternativeTransferCharacteristics alt_transfer_char;
     /* ... could implement more */
   } payload;
 };
