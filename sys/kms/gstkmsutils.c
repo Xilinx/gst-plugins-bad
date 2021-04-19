@@ -32,7 +32,7 @@
 #include "gstkmsutils.h"
 
 #ifndef DRM_FORMAT_Y8
-#define DRM_FORMAT_Y8		fourcc_code('G', 'R', 'E', 'Y') /* 8  Greyscale	*/
+#define DRM_FORMAT_Y8		fourcc_code('G', 'R', 'E', 'Y') /* 8  Greyscale */
 #endif
 
 #ifndef DRM_FORMAT_Y10
@@ -168,7 +168,7 @@ gst_drm_width_from_drm (guint32 drmfmt, guint32 width)
     case DRM_FORMAT_YVU420:
     case DRM_FORMAT_YUV422:
       if (is_dp)
-        ret = GST_ROUND_UP_N(width, 512);
+        ret = GST_ROUND_UP_N (width, 512);
       else
         ret = width;
       break;
