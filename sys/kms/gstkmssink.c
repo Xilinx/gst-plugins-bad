@@ -1607,6 +1607,7 @@ gst_kms_sink_propose_allocation (GstBaseSink * bsink, GstQuery * query)
           align.stride_align[i] = 255;  /* 256-byte alignment */
         gst_video_info_align (&vinfo, &align);
   }
+  drmModeFreeConnector(conn);
 
   size = GST_VIDEO_INFO_SIZE (&vinfo);
 
