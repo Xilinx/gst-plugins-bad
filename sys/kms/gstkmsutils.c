@@ -84,6 +84,7 @@ static const struct
   DEF_FMT (YUV420, I420),
   DEF_FMT (YVU420, YV12),
   DEF_FMT (YUV422, Y42B),
+  DEF_FMT (YUV444, Y444),
   DEF_FMT (NV12, NV12),
   DEF_FMT (NV21, NV21),
   DEF_FMT (NV16, NV16),
@@ -133,6 +134,7 @@ gst_drm_bpp_from_drm (guint32 drmfmt)
     case DRM_FORMAT_YUV420:
     case DRM_FORMAT_YVU420:
     case DRM_FORMAT_YUV422:
+    case DRM_FORMAT_YUV444:
     case DRM_FORMAT_NV12:
     case DRM_FORMAT_NV21:
     case DRM_FORMAT_NV16:
@@ -177,6 +179,7 @@ gst_drm_width_from_drm (guint32 drmfmt, guint32 width)
     case DRM_FORMAT_YUV420:
     case DRM_FORMAT_YVU420:
     case DRM_FORMAT_YUV422:
+    case DRM_FORMAT_YUV444:
       if (is_dp)
         ret = GST_ROUND_UP_N (width, 512);
       else
@@ -222,6 +225,9 @@ gst_drm_height_from_drm (guint32 drmfmt, guint32 height)
     case DRM_FORMAT_XV20:
 #endif
       ret = height * 2;
+      break;
+    case DRM_FORMAT_YUV444:
+      ret = height * 3;
       break;
     default:
       ret = height;
