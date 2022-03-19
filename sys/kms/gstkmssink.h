@@ -86,6 +86,7 @@ struct _GstKMSSink
   gboolean do_timestamp;
   gboolean avoid_field_inversion;
   gboolean fix_field_inversion;
+  gboolean adjust_latency;
   GstStructure *connector_props;
   GstStructure *plane_props;
   gboolean fullscreen_enabled;
@@ -134,11 +135,14 @@ struct _GstKMSSink
   roi_params roi_param;
 };
 
-struct _GstKMSSinkClass {
+struct _GstKMSSinkClass
+{
   GstVideoSinkClass parent_class;
 };
 
-GType gst_kms_sink_get_type (void) G_GNUC_CONST;
+GType
+gst_kms_sink_get_type (void)
+    G_GNUC_CONST;
 
 G_END_DECLS
 
