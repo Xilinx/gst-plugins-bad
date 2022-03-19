@@ -131,6 +131,7 @@ enum
   PROP_DO_TIMESTAMP,
   PROP_AVOID_FIELD_INVERSION,
   PROP_ADJUST_LATENCY,
+  PROP_LIMIT_ERROR_RECOVERY,
   PROP_CONNECTOR_PROPS,
   PROP_PLANE_PROPS,
   PROP_FULLSCREEN_OVERLAY,
@@ -1059,6 +1060,7 @@ gst_kms_sink_start (GstBaseSink * bsink)
 
   self->xlnx_ll = FALSE;
   self->primary_plane_id = -1;
+  self->error_correction_margin = 0;
 
   if (self->devname || self->bus_id)
     self->fd = drmOpen (self->devname, self->bus_id);
@@ -2750,9 +2752,20 @@ gst_kms_sink_show_frame (GstVideoSink * vsink, GstBuffer * buf)
         GST_WARNING_OBJECT (self,
             "Error bit is set we are in inversion mode as fid_err = %d", err);
 
-        start = gst_clock_get_time (clock);
-        gst_kms_sink_fix_field_inversion (self, buffer);
-        end = gst_clock_get_time (clock);
+        if (!self->error_correction_margin) {
+          start = gst_clock_get_time (clock);
+          gst_kms_sink_fix_field_inversion (self, buffer);
+          end = gst_clock_get_time (clock);
+
+          if (self->limit_error_recovery) {
+            self->error_correction_margin =
+                ((gint) GST_VIDEO_INFO_FPS_N (vinfo) /
+                GST_VIDEO_INFO_FPS_D (vinfo)) * 2;
+          }
+        }
+
+        if (self->error_correction_margin > 0)
+          self->error_correction_margin--;
 
         if (self->adjust_latency) {
           gst_base_sink_set_processing_deadline (GST_BASE_SINK (self),
@@ -3027,6 +3040,9 @@ gst_kms_sink_set_property (GObject * object, guint prop_id,
     case PROP_ADJUST_LATENCY:
       sink->adjust_latency = g_value_get_boolean (value);
       break;
+    case PROP_LIMIT_ERROR_RECOVERY:
+      sink->limit_error_recovery = g_value_get_boolean (value);
+      break;
     case PROP_CONNECTOR_PROPS:{
       const GstStructure *s = gst_value_get_structure (value);
 
@@ -3127,6 +3143,9 @@ gst_kms_sink_get_property (GObject * object, guint prop_id,
       break;
     case PROP_ADJUST_LATENCY:
       g_value_set_boolean (value, sink->adjust_latency);
+      break;
+    case PROP_LIMIT_ERROR_RECOVERY:
+      g_value_set_boolean (value, sink->limit_error_recovery);
       break;
     case PROP_CONNECTOR_PROPS:
       gst_value_set_structure (value, sink->connector_props);
@@ -3397,6 +3416,17 @@ gst_kms_sink_class_init (GstKMSSinkClass * klass)
       "Adjust latency",
       "Adjust latency to compensate any preprocessing done", FALSE,
       G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | G_PARAM_CONSTRUCT);
+
+  /**
+   * kmssink: limit-error-recovery:
+   *
+   * Do error correction for field inversion only once per second.
+   */
+  g_properties[PROP_LIMIT_ERROR_RECOVERY] =
+      g_param_spec_boolean ("limit-error-recovery",
+      "Limit error recovery",
+      "Do error correction only once per second",
+      FALSE, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | G_PARAM_CONSTRUCT);
 
   /**
    * kmssink:connector-properties:
