@@ -669,15 +669,19 @@ set_crtc_to_plane_size (GstKMSSink * self, GstVideoInfo * vinfo)
   const gchar *format;
   gint j;
   GstVideoFormat fmt;
-  gboolean ret;
+  gboolean ret = FALSE;
   GstVideoInfo vinfo_crtc;
   drmModePlane *primary_plane;
 
-  primary_plane = drmModeGetPlane (self->fd, self->primary_plane_id);
+  if (self->primary_plane_id != -1)
+    primary_plane = drmModeGetPlane (self->fd, self->primary_plane_id);
+  if (!primary_plane)
+    return ret;
 
-  ret =
-      set_property_value_for_plane_id (self->fd, self->primary_plane_id,
-      "alpha", 0);
+  if (self->primary_plane_id != -1)
+    ret =
+        set_property_value_for_plane_id (self->fd, self->primary_plane_id,
+        "alpha", 0);
   if (!ret)
     GST_ERROR_OBJECT (self, "Unable to reset alpha value of base plane");
 
@@ -1053,6 +1057,7 @@ gst_kms_sink_start (GstBaseSink * bsink)
   plane = NULL;
 
   self->xlnx_ll = FALSE;
+  self->primary_plane_id = -1;
 
   if (self->devname || self->bus_id)
     self->fd = drmOpen (self->devname, self->bus_id);
@@ -1115,15 +1120,16 @@ retry_find_plane:
   if (!plane)
     goto plane_failed;
 
-  if (self->fullscreen_enabled == 1) {
-    primary_plane =
-        find_plane_for_crtc (self->fd, res, pres, crtc->crtc_id,
-        DRM_PLANE_TYPE_PRIMARY);
-    if (!primary_plane)
-      goto primary_plane_failed;
+  primary_plane =
+      find_plane_for_crtc (self->fd, res, pres, crtc->crtc_id,
+      DRM_PLANE_TYPE_PRIMARY);
+  if (!primary_plane && self->fullscreen_enabled)
+    goto primary_plane_failed;
+  if (primary_plane)
     self->primary_plane_id = primary_plane->plane_id;
+
+  if (self->fullscreen_enabled == 1)
     self->saved_crtc = (drmModeCrtc *) crtc;
-  }
 
   if (!ensure_allowed_caps (self, conn, plane, res))
     goto allowed_caps_failed;
@@ -1277,7 +1283,7 @@ gst_kms_sink_stop (GstBaseSink * bsink)
   if (self->allocator)
     gst_kms_allocator_clear_cache (self->allocator);
 
-  if (self->fullscreen_enabled) {
+  if (self->fullscreen_enabled && self->primary_plane_id != -1) {
     err = set_property_value_for_plane_id (self->fd, self->primary_plane_id,
         "alpha", 255);
     if (!err)
@@ -1324,6 +1330,7 @@ gst_kms_sink_stop (GstBaseSink * bsink)
   self->pending_rect.w = 0;
   self->pending_rect.h = 0;
   self->render_rect = self->pending_rect;
+  self->primary_plane_id = -1;
   GST_OBJECT_UNLOCK (bsink);
 
   g_object_notify_by_pspec (G_OBJECT (self), g_properties[PROP_DISPLAY_WIDTH]);
@@ -2640,7 +2647,7 @@ gst_kms_sink_show_frame (GstVideoSink * vsink, GstBuffer * buf)
   if (!clock) {
     GST_DEBUG_OBJECT (self, "no clock set yet");
     goto bail;
-   }
+  }
 
   if (self->xlnx_ll)
     xlnx_ll_synchronize (self, buffer, clock);
